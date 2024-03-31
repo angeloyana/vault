@@ -1,9 +1,11 @@
 from typing import List, Dict, Union, Optional
 import sys
 import cmd
+from halo import Halo
 
 from vault.ui import UI, Text
 from vault.database import Database, Credential
+from vault.auth import verify_pswd, create_pswd
 
 CommandList = List[Dict[str, Union[str, None]]]
 
@@ -76,6 +78,20 @@ class CredentialManager(cmd.Cmd):
     def do_exit(self, args: str) -> None:
         """Exit the session"""
         sys.exit(0)
+
+    def do_change_password(self, args: str) -> None:
+        """Change your master password"""
+        verify_pswd(title='Change Password', pswd_prompt='Current password: ')
+        pswd = create_pswd(title=None, pswd_prompt='New password: ', confirm_pswd_prompt='Confirm new password: ',
+                           confirm_save=True, exit=False, on_save_message='New password was saved!')
+
+        if pswd is not None:
+            with Halo("Updating database with the new password, PLEASE DON'T EXIT...") as spinner:
+                credentials = self.db.get_many()
+                self.db.pswd = pswd
+                for credential in credentials:
+                    self.db.update(credential, None, credential.parsed_entries)
+                spinner.succeed('Database was safely updated!')
 
     # CRUD Commands
     def do_add(self, args: str) -> None:
